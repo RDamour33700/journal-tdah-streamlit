@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import os
-import matplotlib.pyplot as plt
 
 st.set_page_config(page_title="📒 Suivi TDAH", layout="wide")
 
@@ -75,7 +74,9 @@ with st.form("journal_form"):
     travail_debut = st.text_input("Heure début travail (ex: 9h00)")
     pause_dej = st.text_input("Heure pause déjeuner (ex: 12h30)")
     travail_aprem = st.checkbox("J'ai travaillé l'après-midi")
-    reprise_aprem = st.text_input("Heure reprise après-midi (ex: 14h00)") if travail_aprem else ""
+    reprise_aprem = ""
+    if travail_aprem:
+        reprise_aprem = st.text_input("Heure reprise après-midi (ex: 14h00)")
     fin_travail = st.text_input("Heure fin travail (ex: 18h30)")
     nb_patients = st.number_input("Nombre total de patients vus", min_value=0, step=1)
     nouveaux_patients = st.number_input("Nombre de nouveaux patients", min_value=0, step=1)
