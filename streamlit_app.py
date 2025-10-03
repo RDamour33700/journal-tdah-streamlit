@@ -206,4 +206,21 @@ with st.form("journal_form"):
             "heure_couche": heure_couche, "duree_sommeil": duree_sommeil,
             "prise_8h": str(prise_8h) if prise_8h else "", "dose_8h": int(dose_8h),
             "efficacite_matin": int(eff_matin), "note_matin": note_matin, "effets_matin": effets_matin,
-            "prise_13h": str(prise_13h) if prise_13h else "",_
+            "prise_13h": str(prise_13h) if prise_13h else "", "dose_13h": int(dose_13h),
+            "efficacite_apresmidi": int(eff_apm), "note_apresmidi": note_apm, "effets_apresmidi": effets_apm,
+            "prise_16h": str(prise_16h) if prise_16h else "", "dose_16h": int(dose_16h),
+            "efficacite_soir": int(eff_soir), "note_soir": note_soir, "effets_soir": effets_soir,
+            "travail_debut": travail_debut, "pause_dej": pause_dej, "travail_aprem": bool(travail_aprem),
+            "reprise_aprem": reprise_aprem, "fin_travail": fin_travail,
+            "nb_patients": int(nb_patients), "nouveaux_patients": int(nouveaux_patients),
+            "sport": bool(sport), "type_sport": type_sport, "heure_sport": heure_sport, "duree_sport": duree_sport,
+            "journee_durete": int(journee_durete), "commentaire": commentaire
+        }  # ← FERMETURE MANQUANTE
+
+        if (df["date"] == new["date"]).any():
+            df.loc[df["date"] == new["date"], :] = pd.DataFrame([new])
+        else:
+            df = pd.concat([df, pd.DataFrame([new])], ignore_index=True)
+
+        target = save_data(df)
+        st.success(f"✅ Données sauvegardées dans {target.upper()} ({len(df)} lignes)")
