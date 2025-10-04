@@ -29,7 +29,6 @@ def ensure_columns(df: pd.DataFrame) -> pd.DataFrame:
     for c in COLUMNS:
         if c not in df.columns:
             df[c] = np.nan
-    # types simples utiles
     for col in ["nb_patients","nouveaux_patients","dose_8h","dose_13h","dose_16h",
                 "efficacite_matin","efficacite_apresmidi","efficacite_soir","journee_durete"]:
         if col in df.columns:
@@ -54,7 +53,6 @@ if USE_SHEETS:
     SHEET_NAME = st.secrets["sheets"].get("sheet_name", "Journal TDAH")
 
     def _open_or_create_ws():
-        """Ouvre la feuille et l’onglet data; crée si nécessaire."""
         try:
             sh = GC.open(SHEET_NAME)
         except gspread.SpreadsheetNotFound:
@@ -75,7 +73,6 @@ def load_data() -> pd.DataFrame:
             return ensure_columns(df)
         except Exception as e:
             st.warning(f"⚠️ Google Sheets indisponible ({e}). Passage en CSV local.")
-    # Fallback CSV
     if os.path.exists(CSV_PATH):
         try:
             df = pd.read_csv(CSV_PATH)
@@ -86,7 +83,6 @@ def load_data() -> pd.DataFrame:
     return ensure_columns(df)
 
 def save_data(df: pd.DataFrame) -> str:
-    """Sauve et retourne 'sheets' ou 'csv'."""
     df = ensure_columns(df.copy())
     if USE_SHEETS:
         try:
@@ -111,7 +107,6 @@ def week_days_for(any_day: date):
     return [start + timedelta(days=i) for i in range(7)]
 
 def hhmm_to_hour(hhmm: str):
-    """'08:30' -> 8.5 ; '' -> nan"""
     if not isinstance(hhmm, str) or not hhmm:
         return np.nan
     try:
@@ -122,7 +117,6 @@ def hhmm_to_hour(hhmm: str):
         return np.nan
 
 def parse_duration_hmin(txt: str):
-    """'7h45' -> 7.75 ; '45min' -> 0.75 ; '' -> nan"""
     if not isinstance(txt, str) or not txt.strip():
         return np.nan
     s = txt.lower().replace(" ", "")
@@ -140,7 +134,6 @@ def parse_duration_hmin(txt: str):
     return np.nan
 
 def hours_worked(row):
-    """Heures travaillées = (pause_dej - debut) + (fin - reprise) si aprem travaillé."""
     m1 = hhmm_to_hour(row.get("travail_debut"))
     m2 = hhmm_to_hour(row.get("pause_dej"))
     a1 = hhmm_to_hour(row.get("reprise_aprem"))
@@ -240,17 +233,13 @@ with st.form("journal_form"):
 
     st.subheader("🏃 Sport")
     sport = st.checkbox("J'ai fait du sport", key="sport_chk")
-    # Détails sport : TOUJOURS visibles, simplement désactivés si non cochés
+    # Champs TOUJOURS éditables ; on les videra si non coché
     type_sport = st.selectbox(
         "Type de sport", ["Musculation", "Natation", "Course", "Volley", "Autre"],
-        key="type_sport", disabled=not sport
+        key="type_sport"
     )
-    heure_sport = st.text_input(
-        "Heure de l'entraînement (ex: 19:00)", key="heure_sport", disabled=not sport
-    )
-    duree_sport = st.text_input(
-        "Durée (ex: 45min / 1h15)", key="duree_sport", disabled=not sport
-    )
+    heure_sport = st.text_input("Heure de l'entraînement (ex: 19:00)", key="heure_sport")
+    duree_sport = st.text_input("Durée (ex: 45min / 1h15)", key="duree_sport")
 
     st.subheader("📌 Ressenti global")
     journee_durete = st.slider("Journée dure (0–10)", 0, 10, 4, key="durete")
@@ -320,7 +309,6 @@ def build_week_plot(df: pd.DataFrame, pick: date):
             if not np.isnan(wa) and not np.isnan(we) and we > wa:
                 draw_block(ax, day_idx, wa, we, "red", "Travail AM")
                 last_end = max(last_end, we) if not np.isnan(last_end) else we
-        # Patients sous le dernier bloc
         try:
             if not np.isnan(last_end):
                 pts = int(float(row.get("nb_patients") or 0))
@@ -358,21 +346,16 @@ def build_week_plot(df: pd.DataFrame, pick: date):
             hv = hhmm_to_hour(row.get(tcol)) if isinstance(row.get(tcol), str) else np.nan
             draw_med(ax, day_idx, hv, row.get(dcol))
 
-        # Bandeau récap en BAS de la journée (infos demandées)
-        # Sommeil
+        # Bandeau récap bas de journée
         sleep_h = parse_duration_hmin(row.get("duree_sommeil"))
         sleep_txt = f"😴 {row.get('duree_sommeil')}" if pd.notnull(sleep_h) else "😴 n/d"
-        # Heures travaillées
         hw = hours_worked(row)
         hw_txt = f"⏱️ {hw:.1f} h" if pd.notnull(hw) else "⏱️ 0 h"
-        # Dureté
         d_txt = f"💪 {int(row.get('journee_durete'))}/10" if pd.notnull(row.get("journee_durete")) else "💪 n/d"
-        # EI (concat court)
         ei = " | ".join([str(row.get("effets_matin") or ""), str(row.get("effets_apresmidi") or ""), str(row.get("effets_soir") or "")]).strip()
         ei = ei.replace("  "," ").strip(" |")
         if len(ei) > 40: ei = ei[:40] + "…"
         ei_txt = f"⚠️ {ei}" if ei else "⚠️ —"
-        # Commentaire court
         com = str(row.get("commentaire") or "").strip()
         if len(com) > 50: com = com[:50] + "…"
         com_txt = f"📝 {com}" if com else "📝 —"
@@ -395,15 +378,13 @@ st.pyplot(fig)
 st.markdown("---")
 st.subheader("📈 Analyse & corrélations")
 
-# Période d'analyse
 col_a, col_b = st.columns(2)
 with col_a:
     days_range = st.slider("Période d'analyse (jours en arrière)", 7, 90, 21)
 with col_b:
-    st.caption("Astuce : remplis régulièrement les 3 efficacités (matin/apm/soir) pour une moyenne fiable.")
+    st.caption("Remplis bien les 3 efficacités (matin/apm/soir) pour une moyenne fiable.")
 
 if not df.empty:
-    # Prépare un DF métriques
     dfa = df.copy()
     dfa["date"] = pd.to_datetime(dfa["date"], errors="coerce")
     dfa = dfa.sort_values("date").dropna(subset=["date"])
@@ -414,17 +395,15 @@ if not df.empty:
     dfa["work_h"] = dfa.apply(hours_worked, axis=1)
     dfa["eff_avg"] = dfa.apply(avg_efficacy, axis=1)
 
-    # Tableau résumé
     st.markdown("**Variables suivies (période sélectionnée)**")
     view_cols = ["date","sleep_h","work_h","nb_patients","nouveaux_patients","eff_avg","journee_durete"]
     st.dataframe(dfa[view_cols].round(2))
 
-    # Corrélations (Pearson r via numpy)
     def corr_pair(x, y):
         x = pd.to_numeric(x, errors="coerce")
         y = pd.to_numeric(y, errors="coerce")
         m = x.notna() & y.notna()
-        if m.sum() < 3:  # trop peu de points
+        if m.sum() < 3:
             return np.nan
         return np.corrcoef(x[m], y[m])[0,1]
 
@@ -438,22 +417,19 @@ if not df.empty:
     corr_df = pd.DataFrame(
         [{"Relation": k, "r (≈ force & signe)": (f"{v:.2f}" if pd.notnull(v) else "n/d")} for k,v in corr_data.items()]
     )
-    st.markdown("**Corrélations (r de Pearson)**  \n> proche de **-1** : forte relation inverse • proche de **+1** : forte relation directe • **0** : pas de lien linéaire")
+    st.markdown("**Corrélations (r de Pearson)** – proche de **-1** : relation inverse • **+1** : relation directe • **0** : pas de lien linéaire")
     st.dataframe(corr_df, use_container_width=True)
 
-    # Scatter + droite de régression
     def scatter_with_fit(x, y, xlabel, ylabel, title):
         x = pd.to_numeric(x, errors="coerce")
         y = pd.to_numeric(y, errors="coerce")
         m = x.notna() & y.notna()
         if m.sum() < 3:
-            st.info(f"Pas assez de points pour le graphique « {title} ».")
+            st.info(f"Pas assez de points pour « {title} ».") 
             return
         xv, yv = x[m].values, y[m].values
-        # droite de régression y = a x + b
         a, b = np.polyfit(xv, yv, 1)
         r = np.corrcoef(xv, yv)[0,1]
-
         fig2, ax2 = plt.subplots(figsize=(5.5, 4))
         ax2.scatter(xv, yv)
         xs = np.linspace(xv.min(), xv.max(), 50)
@@ -469,25 +445,6 @@ if not df.empty:
         scatter_with_fit(dfa["nb_patients"], dfa["eff_avg"], "Patients (total)", "Efficacité moyenne (0-10)", "Patients ↔ Efficacité")
     with c3:
         scatter_with_fit(dfa["sleep_h"], dfa["eff_avg"], "Sommeil (h)", "Efficacité moyenne (0-10)", "Sommeil ↔ Efficacité")
-
-    # Interprétation rapide
-    st.markdown("**Lecture rapide :**")
-    bullets = []
-    r_work = corr_data["Heures travaillées ↔ Efficacité"]
-    if pd.notnull(r_work):
-        if r_work <= -0.3: bullets.append("Quand **l'amplitude/charge de travail augmente**, l'**efficacité ressentie baisse** (effet fatigue/surcharge possible).")
-        elif r_work >= 0.3: bullets.append("Plus tu **travailles**, plus l'**efficacité ressentie monte** (effet d’activation/flow ?).")
-    r_sleep = corr_data["Sommeil (h) ↔ Efficacité"]
-    if pd.notnull(r_sleep):
-        if r_sleep >= 0.3: bullets.append("Plus tu **dors**, meilleure est l’**efficacité** (le sommeil soutient le traitement).")
-        elif r_sleep <= -0.3: bullets.append("Plus tu **dors**, plus l’**efficacité baisse** (peut refléter des nuits très longues non réparatrices).")
-    r_pat = corr_data["Patients (total) ↔ Efficacité"]
-    if pd.notnull(r_pat):
-        if r_pat <= -0.3: bullets.append("Plus il y a de **patients**, plus l’**efficacité baisse** (charge cognitive).")
-        elif r_pat >= 0.3: bullets.append("Plus de **patients** s’accompagnent d’**efficacité** plus haute (stimulation).")
-    if not bullets:
-        bullets.append("Aucun lien linéaire net — poursuis le suivi quelques semaines pour y voir plus clair.")
-    for b in bullets: st.write("• " + b)
 else:
     st.info("Pas encore de données pour analyser les corrélations.")
 
